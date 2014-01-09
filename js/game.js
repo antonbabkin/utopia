@@ -25,7 +25,7 @@ function create() {
             grass.body.immovable = true;
             
             // random trees
-            if (Math.random() < 0.3)
+            if ((i>2 || j>2) && Math.random() < 0.3)
             {
                 var tree = trees.create(i*32, j*32, 'tree');
                 tree.body.immovable = true;
