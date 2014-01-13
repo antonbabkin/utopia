@@ -1,8 +1,7 @@
-var mapObjects = []; // 2-dim array to store map immobile objects
-
-for (var i = 0; i<10; i++) {
-    mapObjects[i] = [];
-    for (var j=0; j<5; j++) {
-        mapObjects[i][j]=10*i+j;
-    }
+var rand = Math.random();
+if (rand<0.2) {
+    colsole.log(1);
+} else if (rand<0.3) {
+    colsole.log(2);
 }
+console.log(rand);

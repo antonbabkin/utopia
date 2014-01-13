@@ -3,7 +3,8 @@
     // constants
     var cObjects = {
         tree: 0,
-        wood: 1
+        wood: 1,
+        rock: 2
     };
     var cMapGrid = {
         width: 15,
@@ -13,120 +14,132 @@
         width: 32,
         height: 32
     };
+    
+
+
 
     var mapObjects; // immobile objects on map
     var mapObjectsGrid = []; // 2-dim array of immobile objects' codes
-    var ground;
-    var hero;
+    var mapGround; // tileset for map ground
+    var player;
+    var controls; // keyboard controls    
     
-    var game = new Phaser.Game(cMapGrid.width * cTile.width, cMapGrid.height * cTile.height, Phaser.AUTO, '', { preload: preload, create: create, update: update });
-     
+    var game = new Phaser.Game(cMapGrid.width * cTile.width, cMapGrid.height * cTile.height, Phaser.CANVAS, '', { preload: preload, create: create, update: update, render: render });
+    
+    
+
+    
+    
+    
+    // load assets
     function preload() {
+        game.load.image('hero', 'assets/hero.png');
         game.load.image('grass', 'assets/grass.png');
         game.load.image('tree', 'assets/tree.png');
         game.load.image('wood', 'assets/wood.png');
-        game.load.image('hero', 'assets/hero.png');
+        game.load.image('rock', 'assets/rock.png');
     }
     
 
 
-    
+    // initialize
     function create() {
         var i, j;
         var tile; // used to fill groups with sprites
+        var rand;
         
         // fill ground with grass
-        ground = game.add.group();
-        trees = game.add.group();
+        mapGround = game.add.group();
+        mapObjects = game.add.group();
         
         for (i = 0; i < cMapGrid.width; i += 1) {
             mapObjectsGrid[i] = [];
             
             for (j = 0; j < cMapGrid.height; j += 1) {
                 //  fill ground with grass
-                tile = ground.create(i * cTile.width, j * cTile.height, 'grass');
+                tile = mapGround.create(i * cTile.width, j * cTile.height, 'grass');
                 tile.body.immovable = true;
                 
                 // random immobile objects
-                if ((i > 2 || j > 2) && Math.random() < 0.3) {
-                    mapObjectsGrid[i][j] = cObjects.tree;
-                    tile = mapObjects.create(i * cTile.width, j * cTile.height, 'tree');
-                    tile.body.immovable = true;
+                if (i > 2 || j > 2) {
+                    rand = Math.random();
+                    if (rand < 0.2) {
+                        mapObjectsGrid[i][j] = cObjects.tree;
+                        tile = mapObjects.create(i * cTile.width, j * cTile.height, 'tree');
+                        tile.body.immovable = true;
+                    } else if (rand < 0.3) {
+                        mapObjectsGrid[i][j] = cObjects.rock;
+                        tile = mapObjects.create(i * cTile.width, j * cTile.height, 'rock');
+                        tile.body.immovable = true;
+                    }
                 }
             }
         }
         
-        hero = game.add.sprite(0,0,'hero');
-        hero.body.collideWorldBounds = true;
+        player = game.add.sprite(0,0,'hero');
+        //player.busy = false; // busy while moving between tiles
+        player.speed = 80;
+        player.posCurrent = { // position on map grid
+            i: 0, // horizontal
+            j: 0 // vertical
+        }
+        player.posNext = { // position on map grid
+            i: 0, // horizontal
+            j: 0 // vertical
+        }
+
         
-        // controls
-        cursors = game.input.keyboard.createCursorKeys();
+        // keyboard controls
+        controls = {
+            down: game.input.keyboard.addKey(Phaser.Keyboard.S),
+            left: game.input.keyboard.addKey(Phaser.Keyboard.A),
+            right: game.input.keyboard.addKey(Phaser.Keyboard.D),
+            up: game.input.keyboard.addKey(Phaser.Keyboard.W)
+        }
+
     }
-     
+    
+    // do update() every frame, 60 FPS
     function update() {
         
-        // don't go through trees
-        game.physics.collide(hero, trees);
+        // movement        
+        if (player.body.velocity.x === 0 && player.body.velocity.y === 0) { // can start moving
+            if (controls.left.isDown && player.posCurrent.i > 0 && mapObjectsGrid[player.posCurrent.i - 1][player.posCurrent.j] === undefined) {
+                player.body.velocity.x = -player.speed;
+                player.posNext.i -= 1;
+            } else if (controls.right.isDown && player.posCurrent.i < cMapGrid.width - 1 && mapObjectsGrid[player.posCurrent.i + 1][player.posCurrent.j] === undefined) {
+                player.body.velocity.x = player.speed;
+                player.posNext.i += 1;
+            } else if (controls.up.isDown && player.posCurrent.j > 0 && mapObjectsGrid[player.posCurrent.i][player.posCurrent.j - 1] === undefined) {
+                player.body.velocity.y = -player.speed;
+                player.posNext.j -= 1;
+            } else if (controls.down.isDown && player.posCurrent.j < cMapGrid.height - 1 && mapObjectsGrid[player.posCurrent.i][player.posCurrent.j + 1] === undefined) {
+                player.body.velocity.y = player.speed;
+                player.posNext.j += 1;
+            }
+        } else { // already moving. check if destination reached
+            if ((player.posNext.i - player.posCurrent.i) * player.body.x >= (player.posNext.i - player.posCurrent.i) * player.posNext.i * cTile.width && (player.posNext.j - player.posCurrent.j) * player.body.y >= (player.posNext.j - player.posCurrent.j) * player.posNext.j * cTile.height) {
+                player.posCurrent.i = player.posNext.i;
+                player.posCurrent.j = player.posNext.j;
+                player.body.velocity.x = 0;
+                player.body.velocity.y = 0;
+                player.body.x = player.posCurrent.i * cTile.width;
+                player.body.y = player.posCurrent.j * cTile.height;
+            }
+        }
+            
         
-        
-//        //  stop hero velocity (movement) if reached next tile
-//        if (hero.busy && hero.body.velocity.x < 0 && hero.body.x <= hero.i * 32) // finish move left
-//        {
-//            hero.body.velocity.x = 0;
-//            hero.body.x = hero.i * 32;
-//            hero.body.y = hero.j * 32;
-//            hero.busy = false;
-//        }
-//        else if (hero.busy && hero.body.velocity.x > 0 && hero.body.x >= hero.i * 32) // finish move right
-//        {
-//            hero.body.velocity.x = 0;
-//            hero.body.x = hero.i * 32;
-//            hero.body.y = hero.j * 32;
-//            hero.busy = false;
-//        }
-//        else if (hero.busy && hero.body.velocity.y < 0 && hero.body.y <= hero.j * 32) // finish move up
-//        {
-//            hero.body.velocity.y = 0;
-//            hero.body.x = hero.i * 32;
-//            hero.body.y = hero.j * 32;
-//            hero.busy = false;
-//        }
-//        else if (hero.busy && hero.body.velocity.y > 0 && hero.body.y >= hero.j * 32) // finish move down
-//        {
-//            hero.body.velocity.y = 0;
-//            hero.body.x = hero.i * 32;
-//            hero.body.y = hero.j * 32;
-//            hero.busy = false;
-//        }
-//    
-//        if (!hero.busy && cursors.left.isDown)
-//        {
-//            //  Move to the left
-//            hero.i = Math.max(0,hero.i-1);
-//            hero.body.velocity.x = -150;
-//            hero.busy = true;
-//    
-//        }
-//        else if (!hero.busy && cursors.right.isDown)
-//        {
-//            //  Move to the right
-//            hero.i = Math.min(grid.width-1,hero.i+1);
-//            hero.body.velocity.x = 150;
-//            hero.busy = true;
-//        }
-//        else if (!hero.busy && cursors.down.isDown)
-//        {
-//            //  Move down
-//            hero.busy = true;
-//            hero.j = Math.min(grid.height-1,hero.j+1);
-//            hero.body.velocity.y = 150;
-//        }
-//        else if (!hero.busy && cursors.up.isDown)
-//        {
-//            //  Move up
-//            hero.busy = true;
-//            hero.j = Math.max(0,hero.j-1);
-//            hero.body.velocity.y = -150;
-//        }
+    
+    }
+    
+    
+    
+    function render() {
+
+//        game.debug.renderSpriteCollision(player, 0, 20, 'rgb(255, 0, 0)');
+//        game.debug.renderText('player.posCurrent: ' + player.posCurrent.i.toString() + ',' + player.posCurrent.j.toString(), 0, 150, 'rgb(0, 0, 0)');
+//        game.debug.renderText('player.posNext: ' + player.posNext.i.toString() + ',' + player.posNext.j.toString(), 0, 170, 'rgb(0, 0, 0)');
+//        game.debug.renderSpriteInfo(player, 0, 240, 'rgp(0, 0, 255)');
+
     }
 }());
